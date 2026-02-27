@@ -1,0 +1,423 @@
+---
+title: "Étude de cas : Cyclistic 'Bike-Share'"
+author: "Lucas RENAUD"
+date: "2026-02-02"
+output: 
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+---
+
+# Introduction
+
+Ce projet est réalisé dans le cadre du **Certificat Professionnel Google Data Analytics**. L'objectif est d'analyser les données de **Cyclistic**, une entreprise de vélopartage à Chicago, pour aider l'équipe marketing à définir une stratégie qui incite les clients ponctuels à prendre un **abonnement annuel**.
+
+### Méthodologie du projet
+
+Pour répondre à cette problématique, ce projet est structuré selon les six phases du processus d'analyse de données vu durant la certification :
+
+* *1. ASK (Poser des questions)* : Définition de la tâche commerciale et des objectifs de l'analyse.
+* *2. PREPARE (Préparer)* : Identification, localisation et vérification de la qualité des sources de données.
+* *3. PROCESS (Traiter)* : Nettoyage des données et transformation (via R) pour garantir leur fiabilité.
+* *4. ANALYZE (Analyser)* : Exploration des données pour identifier des tendances et des relations.
+* *5. SHARE (Partager)* : Création de visualisations pour communiquer les résultats de manière claire.
+* *6. ACT (Agir)* : Formulation de recommandations stratégiques basées sur les conclusions de l'analyse.
+
+# 1. Phase : <u>Ask</u>
+
+### Questions clés
+Trois questions dirigent le futur programme marketing :
+
+* **Différences d'utilisation** : Comment les deux groupes utilisent-ils les vélos (durée, fréquence, jours) ?
+
+* **Motivation de conversion** : Pourquoi un client ponctuel passerait-il à un abonnement annuel ?
+
+* **Influence numérique** : Quel est l'impact des réseaux sociaux sur leurs décisions ?
+
+### Question assignée
+Parmi les trois questions guidant le programme marketing, ma mission se concentre exclusivement sur la première : 
+
+* **De quelle manière les cyclistes occasionnels et les membres annuels utilisent-ils les vélos Cyclistic différemment ?**
+
+### Objectif de l'analyse
+
+La rentabilité de Cyclistic reposant sur la maximisation du nombre d'abonnés annuels, l'objectif est d'identifier les différences de comportement entre les usagers pour appuyer la nouvelle stratégie marketing.
+
+Cette analyse permettra de produire des rapports clairs et des visualisations professionnelles destinés à convaincre l'équipe exécutive.
+
+
+# 2. Phase : <u>Prepare</u>
+
+Pour cette analyse il y avait de nombreux fichiers disponibles, allant de **2017 à 2025**, des données classées par trimestres, semestres mais également mensuelles. J'ai donc décidé de me concentrer sur **les 12 derniers mois** d'une année complète (Janvier 2025 à Décembre 2025) pour plusieurs raisons :
+
+* Analyser les derniers comportements des utilisateurs pour obtenir les **tendances** les plus récentes. 
+* Avoir une représentativité saisonnière (printemps, été, automne, hiver) et ainsi **éviter les biais** liés aux saisons.
+
+Le volume de données pour l'année 2025 dépassant les limites de stockage d'un tableur classique (plus d'un million de lignes), j'ai opté pour une **approche via R**.
+
+Pour ce faire, j'ai extrait l'intégralité des archives .zip dans un dossier local. J'ai donc **centraliser** les 12 fichiers .csv mensuels, pour facilité leur fusion.
+
+Commençons par installer les bibliothèques pertinentes :
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(lubridate)
+```
+
+Maintenant, choisissons la **"Working Directory"** et importons les douze jeux de données :
+
+```{r}
+setwd("~/PROJET END")
+data_jan_2025 <- read.csv("202501-divvy-tripdata.csv")
+data_fev_2025 <- read.csv("202502-divvy-tripdata.csv")
+data_mar_2025 <- read.csv("202503-divvy-tripdata.csv")
+data_avr_2025 <- read.csv("202504-divvy-tripdata.csv")
+data_mai_2025 <- read.csv("202505-divvy-tripdata.csv")
+data_juin_2025 <- read.csv("202506-divvy-tripdata.csv")
+data_juil_2025 <- read.csv("202507-divvy-tripdata.csv")
+data_aou_2025 <- read.csv("202508-divvy-tripdata.csv")
+data_sep_2025 <- read.csv("202509-divvy-tripdata.csv")
+data_oct_2025 <- read.csv("202510-divvy-tripdata.csv")
+data_nov_2025 <- read.csv("202511-divvy-tripdata.csv")
+data_dec_2025 <- read.csv("202512-divvy-tripdata.csv")
+```
+
+Passons à la fusion en un seul **jeu de données**, nous allons également supprimer les douze fichiers obsolètes :
+
+```{r}
+# Fusion de tous les jeux de données 
+trajets_2025 <- bind_rows(data_jan_2025, data_fev_2025, data_mar_2025, data_avr_2025, 
+                       data_mai_2025, data_juin_2025, data_juil_2025, data_aou_2025, 
+                       data_sep_2025, data_oct_2025, data_nov_2025, data_dec_2025)
+
+# Nettoyage des fichiers obsolètes
+rm(data_jan_2025, data_fev_2025, data_mar_2025, data_avr_2025, 
+   data_mai_2025, data_juin_2025, data_juil_2025, data_aou_2025, 
+   data_sep_2025, data_oct_2025, data_nov_2025, data_dec_2025)
+```
+# 3. Phase : <u>Process</u>
+
+Avant de procéder à l'analyse, une **phase de nettoyage** est nécessaire. Il faut traiter les incohérences (données manquantes ou trajets invalides) pour constituer une base de données **saine** et prête pour l'exploration.
+
+Pour y voir plus clair et être à l'aise avec cette base de données, je préfère organiser les noms des colonnes :
+
+```{r}
+# On renomme toutes les colonnes avec des intitulés cohérents
+trajets_2025_v1.0 <- trajets_2025 %>% 
+  rename( id_trajet = ride_id,
+          type_velo = rideable_type,
+          debut_trajet = started_at,
+          fin_trajet = ended_at,
+          station_depart = start_station_name,
+          id_station_depart = start_station_id,
+          station_fin = end_station_name,
+          id_station_fin = end_station_id,
+          latitude_debut = start_lat,
+          longitude_debut = start_lng,
+          latitude_fin = end_lat,
+          longitude_fin = end_lng,
+          type_client = member_casual
+  )
+# Suppression de l'ancien jeu de données
+rm(trajets_2025)
+```
+
+Commençons avec un aperçu :
+
+```{r}
+str(trajets_2025_v1.0)
+```
+
+On constate que les colonnes "debut_trajet" et "fin_trajet" sont au format **chr**(caractère), il faut donc les convertir dans le format adapté **"ymd_hms"** via le package **lubridate** (très pratique pour manipuler des données temporelles).
+
+```{r}
+# Modification des types
+trajets_2025_v1.1 <- trajets_2025_v1.0 %>%
+  mutate(
+    debut_trajet = ymd_hms(debut_trajet),
+    fin_trajet = ymd_hms(fin_trajet)
+  )
+
+# Vérification
+str(trajets_2025_v1.1)
+
+# Suppression de l'ancien jeu de données
+rm(trajets_2025_v1.0)
+```
+
+Nous créons maintenant une colonne **"duree_trajet"** que nous convertissons au **format numérique**. Ce format est plus adapté aux futurs calculs statistiques que le format temporel.
+
+```{r}
+# Création de la colonne qui calcule la durée de chaque trajet
+trajets_2025_v1.2 <- trajets_2025_v1.1 %>%
+  mutate(duree_trajet = (fin_trajet - debut_trajet) / 60) %>% 
+  mutate(duree_trajet = as.numeric(duree_trajet))
+
+# Suppression de l'ancienne base de données
+rm(trajets_2025_v1.1)
+```
+
+Tous les formats de colonnes sont désormais cohérents, passons maintenant au nettoyage des **données aberrantes**. Pour assurer la fiabilité des futurs calculs statistiques, j'ai utilisé la fonction **na.omit()**, éliminant ainsi toutes les lignes contenant au moins une donnée manquante. 
+
+J'ai également appliqué un filtre qui supprimera tous les trajets inférieurs à une minute (faux départs/problèmes techniques). Sur un volume initial de plus de 5 millions de lignes, cette suppression n'affectera pas **l'intégrité des analyses**.
+
+```{r}
+# Création de la version 1.3
+trajets_2025_v1.3 <- trajets_2025_v1.2 %>%
+  na.omit() %>%
+  filter(duree_trajet > 1)
+
+# Vérifie le résultat
+nrow(trajets_2025_v1.3)
+
+# Suppression de la version 1.2
+rm(trajets_2025_v1.2)
+```
+
+Nous perdons "que" une centaine de milliers de lignes, nous pouvons ainsi poursuivre avec la création de la colonne **"jour_semaine"**. J'ai configuré la fonction **wday()** avec les arguments **label = TRUE** et **abbr = FALSE**.
+
+Cela permet d'obtenir les noms des jours en toutes lettres facilitant ainsi la lecture immédiate des résultats.
+
+```{r}
+# Création de la colonne qui indique le jour de la semaine
+trajets_2025_v1.4 <- trajets_2025_v1.3 %>%
+  mutate(jour_semaine = wday(debut_trajet, label = TRUE, abbr = FALSE))
+
+# Suppression de la version 1.3
+rm(trajets_2025_v1.3)
+
+```
+
+# 4. Phase : <u>Analyze</u>
+
+Pour commencer cette analyse, j'ai décidé de calculer la **durée du trajet moyen** ainsi que le **maximum**, et surtout de stocker ces statistiques dans une table pour pouvoir afficher les résultats.
+
+```{r}
+# Premières analyses
+stats_globales <- trajets_2025_v1.4 %>%
+  summarise(
+    moyenne_globale = mean(duree_trajet),
+    trajet_max = max(duree_trajet)
+  )
+
+print(stats_globales)
+```
+
+L'analyse indique que la durée de trajet moyenne sur l'année était de **15 minutes**. En revanche, le trajet le plus long enregistré est de 1 500 minutes (**25 heures**). Il est impossible de déterminer si l'usager a réellement utilisé le vélo durant toute cette journée ou s'il s'agit d'un oubli de restitution.
+
+Par conséquent, il est donc préférable d'utiliser la **médiane** comme indicateur de référence car celle-ci est moins sensible aux **valeurs aberrantes**.
+
+```{r}
+# Comparaison de la médiane par type d'utilisateur
+analyse_mediane <- trajets_2025_v1.4 %>%
+  group_by(type_client) %>%
+  summarise(duree_mediane = median(duree_trajet))
+
+print(analyse_mediane)
+```
+
+D'abord, on observe une différence **majeure** entre la moyenne et la valeur médiane ce qui indique que **les valeurs aberrantes ont fortement influencé la moyenne**.
+
+En réalité, les trajets les plus fréquents se rapprochent d'avantage de 10 minutes que 15 minutes.
+
+On constate aussi que les abonnés priorisent des trajets **plus courts**, probablement pour se rendre sur le lieu de travail. Au contraire les clients ponctuels privilégient des trajets plus longs, peut être en loisir.
+
+Passons maintenant à l'analyse en incluant les jours de la semaine : 
+
+```{r message=FALSE, warning=FALSE}
+# Médiane ET moyenne du temps de trajet par jour de la semaine ET type d'utilisateurs
+analyse_jour <- trajets_2025_v1.4 %>%
+  group_by(type_client, jour_semaine) %>%
+  summarise(duree_mediane = median(duree_trajet),
+            duree_moyenne = mean(duree_trajet)
+            )
+print(analyse_jour)
+```
+
+Avec ces données nous constatons 2 comportements distincts selon le profil de l'utilisateur.
+
+Les **abonnés** sont très réguliers avec une durée médiane très stable (week-end inclus). Cette constance suggère vraiment une utilisation liée aux trajets domicile-travail.
+
+A l'inverse les **clients ponctuels** présentent une nette augmentation du trajet médian durant les week-end. L'écart entre la moyenne et la médiane est également beaucoup plus prononcé que les abonnés (23,2 contre 13,9 le dimanche). Confirmant ainsi la présence de trajets plus longs ou de loisirs pour ce type d'utilisateur.
+
+Dernière analyse avant de regrouper la totalité des informations dans une table de synthèse : Le nombre de trajets par jour et par type de client.
+
+```{r}
+# Classement des volumes
+analyse_volume <- trajets_2025_v1.4 %>%
+  count(type_client, jour_semaine, sort = TRUE)
+
+print(analyse_volume)
+```
+
+Sans surprise, les abonnés ont un **volume** de trajets bien plus important que les clients ponctuels sur l'ensemble de la semaine. 
+
+On observe tout de même une différence dans les **habitudes d'utilisation** : les abonnés se concentrent principalement sur les jours de la semaine, pendant que les clients ponctuels privilégient un **usage durant le week-end**.
+
+Table de synthèse et nouveau fichier :
+
+```{r message=FALSE, warning=FALSE}
+# Création de la table de synthèse
+synthese_cyclistic_final <- trajets_2025_v1.4 %>%
+  group_by(type_client, jour_semaine) %>%
+  summarise(
+    nombre_trajets = n(),
+    duree_moyenne = mean(duree_trajet),
+    duree_mediane = median(duree_trajet)
+  )
+# Fichier CSV avec les KPI
+write.csv(synthese_cyclistic_final, "synthese_cyclistic_final.csv", row.names = FALSE)
+
+# Affichage de la table
+print(synthese_cyclistic_final)
+```
+
+Notre table regroupe bien toutes les données précédemment utilisées, on peut maintenant passer à la prochaine étape.
+
+# 5. Phase : <u>Share</u>
+
+Ici, je transforme les **chiffres en graphiques** pour rendre les résultats visibles. Le but est de montrer clairement les différences d'habitudes entre les abonnés et les clients ponctuels grâce à des **visuels simples**.
+
+Pour commencer à créer des graphiques, il faut faire quelques manipulations sur le **fichier de synthèse** :
+
+* Colonne week-end et semaine 
+* Colonne avec le nombre de trajet en milliers 
+* Colonne utilisateur cohérente
+
+```{r}
+# Colonne week-end / semaine
+
+synthese_cyclistic_final <- synthese_cyclistic_final %>%
+  mutate(weekend_ou_pas = if_else(jour_semaine %in% c("samedi", "dimanche"), "Week-End", "Semaine"))
+
+```
+
+
+```{r}
+# Colonne nombre de trajets en milliers
+
+synthese_cyclistic_final <- synthese_cyclistic_final %>%
+  mutate(nombre_trajets_k = nombre_trajets/1000)
+
+```
+
+```{r}
+# Colonne utilisateur "actualisée"
+
+synthese_cyclistic_final <- synthese_cyclistic_final %>% 
+  mutate(type_client_2 = if_else(type_client %in% c("member"), "Abonnés","Clients Ponctuels"))
+```
+
+Avec toutes ces colonnes nous pouvons créer les premiers graphiques.
+
+```{r}
+#Premier graphique
+
+library(ggplot2)
+
+ggplot(data = synthese_cyclistic_final) +
+  geom_bar(mapping = aes (x = type_client_2, y = nombre_trajets_k, fill= type_client_2), stat = "identity",position = "dodge") +
+  facet_wrap(~weekend_ou_pas) +
+  labs(
+    title = "Comparaison du nombre de trajets en 2025",
+    subtitle = "Semaine vs Week-end",
+    x = " ",
+    y = "Nombre de trajets (en milliers)",
+    fill = "Type de client"
+  ) 
+```
+
+Analyse des volumes de trajets : Ce graphique confirme encore une fois notre hypothèse. Il met en évidence la différence comportementale de nos deux types d'utilisateurs :
+
+* 1 - En semaine (Usage Utilitaire) : Les **abonnés** présentent une nette dominance, le volume de leurs trajets est presque le **double** de celui des **clients ponctuels**. Ainsi cela renforce l'idée de l'utilisation **"vélo-boulot"** des abonnés.
+
+* 2 - Le week-end (Usage Loisir) : Ici l'écart se réduit complètement, les **abonnés** et les **clients ponctuels** partagent presque le même nombre de trajets le week-end. Cependant les clients ponctuels augmentent de près de **1,5x** leur volume comparé à la semaine. 
+
+Nous pouvons maintenant passer à l'étude des durées de trajet:
+
+```{r}
+# Deuxième graphique
+
+ggplot(data = synthese_cyclistic_final) +
+  geom_tile(mapping = aes(x = jour_semaine, y = type_client_2, fill = duree_mediane)) + 
+  # Sert à rajouter le dégradé sur la "Heatmap"
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(
+    title = "Durée médiane des trajets par jour sur l'année 2025 ",
+    subtitle = "Par type de client",
+    x = " ",
+    y = " ",
+    fill = "Minutes"
+  )
+```
+
+Ce deuxième graphique est une **"Heatmap"**. Ici, la couleur ne représente plus le nombre de trajets, mais la **durée médiane** passée sur le vélo.
+
+Nous pouvons tirer deux conclusions majeures à l'issue de ce graphique :
+
+**Constance des Abonnés **(Ligne du bas) : On observe une couleur très claire et **uniforme** sur toute la semaine. La durée médiane reste stable, aux alentours de 8 à 9 minutes. Cette régularité confirme que les abonnés utilisent ce service comme un **outil de transport efficace**.
+
+**Volatilité des Clients Ponctuels** (Ligne du haut) : À l'inverse, cette ligne est **nettement plus foncée**, indiquant des durées plus longues. L'usage n'est pas seulement plus fréquent le week-end, il est **surtout plus long en temps**. Cette ligne confirme aussi une différence de minutes passées en fonction des jours, ce qui affirme l'hypothèse d'une utilisation **"loisir"** annoncée pendant la phase d'analyse.
+
+Maintenant, le dernier graphique :
+
+```{r}
+# Troisième graphique
+ggplot(data = synthese_cyclistic_final) + 
+  geom_point(mapping = aes(x = duree_mediane, y = nombre_trajets_k, color = type_client_2), size = 4) +
+  labs(
+    title = "Rapport entre Volume et Durée des trajets",
+    subtitle = "Différents usages",
+    x = "Durée médiane (en minutes)",
+    y = "Volume de trajets (en milliers)",
+    color = "Type de client"
+  ) +
+annotate("text",
+         x = 11.5,
+         y = 500,
+         size = 4,
+         label = "Chaque point représente un jour de la semaine")
+```
+
+Ce graphique est la preuve finale que l'abonné cherche **l'efficacité** (trajet rapide et fréquent), alors que le client ponctuel cherche le **loisir** (trajet plus long et plus rare).
+
+On remarque **deux groupes** bien séparés sur l'image :
+
+Le groupe des **abonnés** (points rouges, à gauche) : Ils sont tout en haut pour le volume, mais tout à gauche pour la durée. Cela prouve qu'ils font énormément de trajets, mais qu'ils sont **très courts** (environ 8 à 9 minutes). C'est le comportement type pour aller au travail ou en cours.
+
+Le groupe des **clients ponctuels** (points bleus, à droite) : Ils sont plus bas en volume, mais beaucoup plus à droite pour la durée. Ils font **moins de trajets**, mais ils restent bien plus longtemps sur le vélo (souvent entre 10 et 14 minutes).
+
+# 6. Phase : <u>Act</u>
+
+Pour terminer, je propose trois solutions basées sur mes résultats. L'objectif est de donner des idées au **pôle marketing** pour réussir à transformer les clients occasionnels en abonnés annuels (mission de base).
+
+### 1. Créer un "Pass Week-end" ou "Pass Loisir"
+
+Les graphiques montrent que les clients ponctuels utilisent les vélos en grande quantité le **samedi** et le **dimanche** pour des trajets très longs.
+
+Une option attractive serait de proposer un **abonnement spécifique** pour le week-end à un prix réduit. Le but de cette idée est de **fidéliser** ceux qui ne veulent pas payer pour toute la semaine mais qui utilisent le service régulièrement.
+
+### 2. Campagne marketing sur les bénéfices "Loisir"
+
+On a vu que les abonnés sont très centrés sur **l'efficacité** (trajets courts) alors que les ponctuels sont dans le **loisir** (trajets longs).
+
+Une option à considérer serait de faire de la publicité valorisant le côté **"évasion"** et **"balade"** plutôt que seulement le trajet domicile-travail. L'essentiel de cette campagne est de montrer aux **clients ponctuels** que **l'abonnement annuel** est aussi rentable pour leurs longues sorties du dimanche, pas seulement pour aller au bureau.
+
+### 3. Offres promotionnelles le vendredi soir
+
+La **Heatmap** a montré que la durée des trajets commence à augmenter dès le **vendredi**.
+
+Un bon **plan stratégique** serait d'envoyer des notifications ou des réductions le vendredi après-midi pour inciter à utiliser le vélo tout le week-end. Capter l'utilisateur au moment précis où il passe du mode "boulot" au mode "loisir".
+
+# Conclusion finale : 
+
+L'analyse des données de 2025 montre que les deux profils de clients ont des **habitudes opposées**. L'abonné privilégie **l'efficacité** avec des trajets courts et réguliers, alors que le client ponctuel est dans une logique de **loisir**, avec des trajets beaucoup plus longs, surtout en fin de semaine.
+
+Pour convertir ces utilisateurs, Cyclistic ne devrait pas privilégier la **mise en avant** de la rapidité ou du gain de temps. Les données indiquent que le client ponctuel passe souvent **deux fois** plus de temps sur le vélo qu'un abonné. L'enjeu est donc de proposer des offres qui valorisent cette **utilisation longue durée**.
+
+En créant des options plus **flexibles** et adaptées aux sorties du week-end, l'entreprise pourrait montrer aux clients occasionnels que l'abonnement est aussi **avantageux** pour la détente que pour les trajets quotidiens. C’est en ciblant ces moments de temps libre que Cyclistic réussira à les **fidéliser** sur le long terme.
+
+<br><br><br><br><br><br>
