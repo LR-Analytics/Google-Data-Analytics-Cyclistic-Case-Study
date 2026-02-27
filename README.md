@@ -1,7 +1,9 @@
 # Analyse Cyclistic - Partage de vélos (Google Data Analytics Capstone)
 
 Auteur : Lucas Renaud
+
 Formation : L3 Analyse Économique @ IAE Nantes
+
 Outils : R (tidyverse, ggplot2, lubridate), RMarkdown
 
 # Présentation du projet
@@ -14,10 +16,15 @@ L'enjeu stratégique est de fournir des recommandations basées sur les données
 L'analyse suit les six étapes du processus d'analyse de données de Google :
 
 Ask (Poser le problème) : Définir la problématique métier et les objectifs de l'analyse.
+
 Prepare (Préparer) : Importation et organisation des jeux de données (données réelles de trajets).
+
 Process (Nettoyer) : Nettoyage des données sous R (gestion des doublons, valeurs manquantes, formatage des dates et durées de trajets).
+
 Analyze (Analyser) : Calcul de statistiques descriptives et agrégation des données par type d'usager, jour de la semaine et saisonnalité.
+
 Share (Partager) : Création de visualisations percutantes avec ggplot2 pour mettre en évidence les tendances.
+
 Act (Agir) : Formulation de recommandations stratégiques.
 
 # Conclusion & Recommandations
