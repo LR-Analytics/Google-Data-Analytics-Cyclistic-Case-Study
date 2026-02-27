@@ -1,6 +1,5 @@
 # Analyse Cyclistic - Partage de vélos (Google Data Analytics Capstone)
 
-Lien projet : https://lr-analytics.github.io/Google-Data-Analytics-Cyclistic-Case-Study/Projet-fin-d-etude.html
 Auteur : Lucas Renaud
 
 Formation : L3 Analyse Économique @ IAE Nantes
